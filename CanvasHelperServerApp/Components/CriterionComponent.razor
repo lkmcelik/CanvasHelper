@@ -1,0 +1,98 @@
+﻿@if (listCriterion == null) {
+    <p>Loading..</p>
+} 
+else if (SelectedAssignment != null) {
+
+    <DataGrid TItem="Criterion"
+              Data="@listCriterion"
+              @bind-SelectedRow="@selectedCriterion"
+              Editable
+              RowInserting="RowInserting"
+              RowRemoving="RowRemoving"
+              RowUpdating="RowInserting"
+              Responsive
+              PageSize="10"
+              ShowPager="false"
+              CommandMode="DataGridCommandMode.Commands"
+              Hoverable
+              EditMode="DataGridEditMode.Popup">
+        <DataGridColumns>
+            <DataGridCommandColumn TItem="Criterion" Width="100" />
+            <DataGridColumn TItem="Criterion" Field="@nameof(Criterion.Name)" Caption="Name" Editable />
+            <DataGridColumn TItem="Criterion" Field="@nameof(Criterion.Description)" Caption="Description" Editable />
+            <DataGridColumn TItem="Criterion" Field="@nameof(Criterion.MaxMark)" Caption="Max Marks" Editable />
+        </DataGridColumns>
+        <ButtonRowTemplate Context="ctx">
+            <Button Color="Color.Success" Clicked="ctx.NewCommand.Clicked">New</Button>
+            <Button Color="Color.Primary" Disabled="(selectedCriterion is null)" Clicked="ctx.EditCommand.Clicked">Edit</Button>
+            <Button Color="Color.Danger" Disabled="(selectedCriterion is null)" Clicked="ctx.DeleteCommand.Clicked">Delete</Button>
+        </ButtonRowTemplate>
+    </DataGrid>
+}
+
+@code {
+    List<Criterion> listCriterion;
+    List<Assignment> listAssignments;
+
+    [Parameter]
+    public Assignment SelectedAssignment { get; set; }
+
+    [Inject]
+    IBaseRepository<Criterion> repoCriterion { get; set; }
+    [Inject]
+    IBaseRepository<Assignment> repoAssignment { get; set; }
+
+    [Inject]
+    public IMessageService messageService { get; set; }
+
+    protected Criterion selectedCriterion { get; set; } = new Criterion();
+
+    protected override void OnAfterRender(bool firstRender) {
+        base.OnAfterRender(firstRender);
+        if (firstRender) {
+            LoadAssignments();
+            LoadData();
+        }
+    }
+
+    protected void RowInserting(CancellableRowChange<Criterion, Dictionary<string, object>> item) {
+
+        item.Item.Name = item.Values[(nameof(Criterion.Name))].ToString();
+        string maxMarkString = item.Values[(nameof(Criterion.MaxMark))].ToString();
+        item.Item.MaxMark = Int32.Parse(maxMarkString);
+        item.Item.Description = item.Values[(nameof(Criterion.Description))].ToString();
+        item.Item.IdAssignment = SelectedAssignment.ID;
+        repoCriterion.AddOrUpdate(item.Item);
+    }
+
+    protected async void RowRemoving(CancellableRowChange<Criterion> item) {
+        var result = await messageService.Confirm("Are you sure?", "Delete Row!");
+        listCriterion.Remove(item.Item);
+        if (result) {
+            repoCriterion.Remove(item.Item);
+            listCriterion.Remove(item.Item);
+        }
+        else {
+            listCriterion.Add(item.Item);
+            item.Cancel = true;
+        }
+        StateHasChanged();
+    }
+
+    protected void LoadData() {
+        if (SelectedAssignment != null)
+        {
+            listCriterion = repoCriterion.GetAll().Where(q => q.IdAssignment == SelectedAssignment.ID).Include(q => q.IdAssignmentNavigation).ToList();
+        } else {
+            listCriterion = new List<Criterion>();
+        }
+        StateHasChanged();
+    }
+
+    public void LoadAssignments() {
+        listAssignments = repoAssignment.GetAll().ToList();
+        StateHasChanged();
+    }
+
+    string selectedCriterionString;
+}

@@ -1,0 +1,88 @@
+﻿
+@if (listUser == null) {
+    <p>Loading..</p>
+}
+else {
+
+    <DataGrid TItem="User"
+              Data="@listUser"
+              @bind-SelectedRow="@selectedUser"
+              Editable
+              RowInserting="RowInserting"
+              RowRemoving="RowRemoving"
+              RowUpdating="RowInserting"
+              Responsive
+              PageSize="10"
+              ShowPager
+              Filterable
+              CommandMode="DataGridCommandMode.Commands"
+              Hoverable
+              EditMode="DataGridEditMode.Popup">
+        <DataGridColumns>
+            <DataGridCommandColumn TItem="User" Width="100" />
+            <DataGridColumn TItem="User" Field="@nameof(User.ID)" Caption="User Number" Editable="false"/>
+            <DataGridColumn TItem="User" Field="@nameof(User.LastName)" Caption="Last Name" Editable="true" />
+            <DataGridColumn TItem="User" Field="@nameof(User.FirstName)" Caption="First Name" Editable="true" />
+            <DataGridColumn TItem="User" Field="@nameof(User.MiddleName)" Caption="Middle Name" Editable="true" />
+            @*<DataGridColumn TItem="User" Field="@nameof(User.LastLogin)" Caption="Last Login" Editable="false" />*@
+        </DataGridColumns>
+        <ButtonRowTemplate Context="ctx">
+            <Button Color="Color.Success" Clicked="ctx.NewCommand.Clicked">New</Button>
+            <Button Color="Color.Primary" Disabled="(selectedUser is null)" Clicked="ctx.EditCommand.Clicked">Edit</Button>
+            <Button Color="Color.Danger" Disabled="(selectedUser is null)" Clicked="ctx.DeleteCommand.Clicked">Delete</Button>
+            <Button Color="Color.Link" Clicked="ctx.ClearFilterCommand.Clicked">Clear Filter</Button>
+        </ButtonRowTemplate>
+
+    </DataGrid>
+}
+@code {
+    List<User> listUser; 
+
+    [Inject]
+    IBaseRepository<User> repoUser { get; set; } 
+
+    [Inject]
+    public IMessageService messageService { get; set; }
+
+    protected User selectedUser { get; set; } = new User();
+
+    protected override void OnAfterRender(bool firstRender) {
+        base.OnAfterRender(firstRender);
+        if (firstRender) { 
+            LoadData();
+        }
+    }
+    protected void RowInserting(CancellableRowChange<User, Dictionary<string, object>> item) {
+
+        item.Item.FirstName= item.Values[(nameof(User.FirstName))]?.ToString();
+        item.Item.MiddleName= item.Values[(nameof(User.MiddleName))]?.ToString();
+        item.Item.LastName= item.Values[(nameof(User.LastName))]?.ToString();
+        item.Item.UserType = UserType.student;
+        repoUser.AddOrUpdate(item.Item);
+        LoadData();
+    }
+    protected async void RowRemoving(CancellableRowChange<User> item) {
+        var result = await messageService.Confirm("Are you sure?", "Delete Row!");
+        listUser.Remove(item.Item);
+        if (result) {
+            repoUser.Remove(item.Item);
+            listUser.Remove(item.Item);
+        }
+        else {
+            listUser.Add(item.Item);
+            item.Cancel = true;
+        }
+        StateHasChanged();
+    }
+
+    protected void LoadData() {
+        listUser = repoUser.GetAll(s=>s.UserType==  UserType.student).ToList();
+        StateHasChanged();
+    }
+     
+    //protected void LoadAssesmentType() {
+    //    listCourses = repoAssesmentType.GetAll().ToList();
+    //    StateHasChanged();
+    //}
+
+}

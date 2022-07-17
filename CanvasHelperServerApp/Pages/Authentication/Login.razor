@@ -1,0 +1,102 @@
+﻿@layout _LoginLayout
+@page "/login"
+@using Blazored.SessionStorage
+@inject ISessionStorageService sessionStorage
+<link rel="shortcut icon" type="image/x-icon"
+	  href="https://cpwebassets.codepen.io/assets/favicon/favicon-aec34940fbc1a6e787974dcd360f2c6b63348d4b1f4e06c77743096d55480f33.ico">
+<link rel="mask-icon"
+	  href="https://cpwebassets.codepen.io/assets/favicon/logo-pin-8f3771b1072e3c38bd662872f6b673a722f4b3ca2421637d5596661b4e2132cc.svg"
+	  color="#111">
+<link rel="canonical" href="https://codepen.io/htschmed/pen/EEGJZY">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.css">
+<link rel="stylesheet"
+	  href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.16/css/dataTables.bootstrap4.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css">
+<link rel="stylesheet" href="/css/mockup.css">
+
+
+<section id="section-1">
+	<!-- Section title -->
+	<!--Section: Demo-->
+	<section class="pb-4">
+		<div class="bg-white border rounded-5">
+
+			<section class="w-100">
+
+				<div class="container">
+					<div class="row d-flex justify-content-center align-items-center h-100">
+						<div class="col-md-9 col-lg-6 col-xl-6 my-lg-5 py-lg-5">
+							<img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.webp" class="img-fluid" alt="Sample image">
+						</div>
+						<div class="col-md-8 col-lg-6 col-xl-5 offset-xl-1 my-lg-5 py-lg-5">
+							<EditForm Model="loginUser" OnValidSubmit="LoginUser">
+								<DataAnnotationsValidator />
+								<Microsoft.AspNetCore.Components.Forms.ValidationSummary />
+
+								<div class="divider d-flex align-items-center my-4">
+									<p class="text-center fw-bold mx-3 mb-0">CanvasHelper Login</p>
+								</div>
+
+								<!-- Email input -->
+								<div class="form-outline mb-4">
+									<input @bind-value="loginUser.FirstNameLastName" type="text" id="form3Example3" class="form-control form-control-lg" placeholder="Enter a valid First Name and Last Name address">
+									<div class="form-notch"><div class="form-notch-leading" style="width: 9px;"></div><div class="form-notch-middle" style="width: 88.8px;"></div><div class="form-notch-trailing"></div></div>
+								</div>
+
+								<!-- Password input -->
+								<div class="form-outline mb-3">
+									<input @bind-value="loginUser.Password" type="password" id="form3Example4" class="form-control form-control-lg" placeholder="Enter password">
+									<div class="form-notch"><div class="form-notch-leading" style="width: 9px;"></div><div class="form-notch-middle" style="width: 64px;"></div><div class="form-notch-trailing"></div></div>
+								</div>
+
+								
+
+								<div class="text-center text-lg-start mt-4 pt-2">
+									<button type="submit" class="btn btn-primary btn-lg" style="padding-left: 2.5rem; padding-right: 2.5rem;">Login</button>
+								</div>
+
+							</EditForm>
+						</div>
+					</div>
+				</div>
+
+			</section>
+
+
+
+
+		</div>
+	</section>
+
+
+	<!--Section: Demo-->
+	<!--Section: Code-->
+</section>
+
+
+@code {
+	public User loginUser { get; set; } = new();
+	[Inject]
+	public IBaseRepository<User> repoUser { get; set; }
+	[Inject]
+	public NavigationManager nav { get; set; }
+	[Inject]
+	public AuthenticationStateProvider authProvider { get; set; }
+	//public CustomAuthenticationStateProvider authProvider { get; set; }
+
+
+	public async void LoginUser() {
+
+
+		var res = repoUser.GetAll(q => q.UserType == UserType.teacher && q.FirstName + q.LastName == loginUser.FirstNameLastName && q.Password == loginUser.Password).Any();
+
+		if (res) {
+			//Basic authenticate
+			await sessionStorage.SetItemAsync("username", loginUser.FirstNameLastName);
+			((CustomAuthenticationStateProvider)(authProvider)).MarkAsAuthenticated(loginUser.FirstNameLastName);
+
+			nav.NavigateTo("/");
+		}
+	}
+}

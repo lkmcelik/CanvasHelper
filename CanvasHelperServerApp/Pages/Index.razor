@@ -1,0 +1,118 @@
+﻿@page "/"
+@using System.IO
+@using iText.Kernel.Pdf
+@using iText.Layout
+@using iText.Layout.Element
+@using CanvasHelperServerApp.Utilities
+
+<div class="card mb-1" style="overflow: hidden !important;    border: none;">
+    <div class="card-header bg-danger" id="headingTwo">
+        <h2 class="mb-0">
+            <button class="btn btn-link btn-block text-left collapsed" type="button"
+                    data-toggle="collapse" data-target="#collapseTwo" aria-expanded="false"
+                    aria-controls="collapseTwo" style=" color: white;font-weight: bolder;">
+                MODULES
+            </button>
+        </h2>
+    </div>
+    <div class="card-body-icon">
+        <i class="fa fa-file-text-o"></i>
+    </div>
+    <div id="collapseTwo" aria-labelledby="headingTwo"
+         data-parent="#accordionExample1" class="card mb-1 collapse">
+        <div class="card-body">
+            <CourseComponent CourseListChanged="() => { refAssigmentComponent.LoadCourses(); StateHasChanged(); }" />
+        </div>
+    </div>
+</div>
+<div class="card mb-1" style="overflow: hidden !important;border: none;">
+    <div class="card-header bg-primary" id="headingOne">
+        <h2 class="mb-0">
+            <button class="btn btn-link btn-block text-left collapsed" type="button"
+                    data-toggle="collapse" data-target="#collapseOne" aria-expanded="false"
+                    aria-controls="collapseOne" style=" color: white;font-weight: bolder;">
+                ASSIGNMENTS
+            </button>
+        </h2>
+    </div>
+    <div class="card-body-icon">
+        <i class="fa fa-list"></i>
+    </div>
+
+    <div id="collapseOne" aria-labelledby="headingOne"
+         data-parent="#accordionExample2" class="card mb-1 collapse">
+        <div class="card-body">
+            <AssignmentComponent @ref="refAssigmentComponent" />
+        </div>
+    </div>
+</div>
+
+<div class="card mb-1" style="overflow: hidden !important;    border: none;">
+    <div class="card-header bg-success" id="headingThree">
+        <h2 class="mb-0">
+            <button class="btn btn-link btn-block text-left collapsed" type="button"
+                    data-toggle="collapse" data-target="#collapseThree" aria-expanded="false"
+                    aria-controls="collapseThree" style=" color: white;font-weight: bolder;">
+                STUDENTS
+            </button>
+        </h2>
+    </div>
+    <div class="card-body-icon">
+        <i class="fa fa-users"></i>
+    </div>
+
+    <div id="collapseThree" aria-labelledby="headingThree"
+         data-parent="#accordionExample3" class="card mb-1 collapse">
+        <div class="card-body">
+            <UserComponent />
+        </div>
+    </div>
+</div>
+<div class="card mb-1" style="overflow: hidden !important;    border: none;">
+    <div class="card-header bg-info" id="headingFive">
+        <h2 class="mb-0">
+            <button class="btn btn-link btn-block text-left collapsed" type="button"
+                    data-toggle="collapse" data-target="#collapseFive" aria-expanded="false"
+                    aria-controls="collapseFour" style=" color: white;font-weight: bolder;">
+                FAVOURITE FEEDBACK
+            </button>
+        </h2>
+    </div>
+    <div class="card-body-icon">
+        <i class="fa fa-comments"></i>
+    </div>
+    <div id="collapseFive" aria-labelledby="headingFive"
+         data-parent="#accordionExample4" class="card mb-1 collapse">
+        <div class="card-body">
+            <FavouriteFeedbackComponent />
+        </div>
+    </div>
+</div>
+<div class="card mb-1" style="overflow: hidden !important;    border: none;">
+    <div class="card-header bg-warning" id="headingSix">
+        <h2 class="mb-0">
+            <button class="btn btn-link btn-block text-left collapsed" type="button"
+                    data-toggle="collapse" data-target="#collapseSix" aria-expanded="false"
+                    aria-controls="collapseSix" style=" color: white;font-weight: bolder;">
+                GENERATE FEEDBACK
+            </button>
+        </h2>
+    </div>
+    <div class="card-body-icon">
+        <i class="fa fa-file-text"></i>
+    </div>
+    <div id="collapseSix" aria-labelledby="headingSix" data-parent="#accordionExample5" class="card mb-1 collapse">
+        <div class="card-body">
+            <GeneratePDFComponent />
+        </div>
+    </div>
+</div>
+
+<hr class="mt-2">
+
+@code {
+
+    protected AssignmentComponent refAssigmentComponent { get; set; }
+
+
+}

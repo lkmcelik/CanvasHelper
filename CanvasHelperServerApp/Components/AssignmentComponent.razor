@@ -1,0 +1,115 @@
+﻿
+
+@if (listAssignment == null) {
+    <p>Loading..</p>
+}
+else {
+
+    <DataGrid TItem="Assignment"
+              Data="@listAssignment"
+              @bind-SelectedRow="@selectedAssignment"
+              Editable
+              RowInserting="RowInserting"
+              RowRemoving="RowRemoving"
+              RowUpdating="RowInserting"
+              Responsive
+              PageSize="10"
+              ShowPager
+              Filterable
+              DetailRowTrigger="@((e) => e.Name == selectedAssignment?.Name)"
+              CommandMode="DataGridCommandMode.Commands"
+              Hoverable
+              EditMode="DataGridEditMode.Popup">
+        <DataGridColumns>
+            <DataGridCommandColumn TItem="Assignment" Width="100" />
+            <DataGridColumn TItem="Assignment" Field="@nameof(Assignment.IdCourse)" Caption="Course Number" Editable Displayable="false">
+                <EditTemplate>
+                    <Select TValue="int?" SelectedValueChanged="@(s=>context.CellValue=s)">
+                        @foreach (var item in listCourses) {
+                            <SelectItem Value="@item.ID">@item.Name</SelectItem>
+                        }
+                    </Select>
+                </EditTemplate>
+            </DataGridColumn>
+            <DataGridColumn TItem="Assignment" Field="@nameof(Assignment.CourseName)" Caption="Course Name" Editable="false" >
+                <FilterTemplate>
+                    <Select TValue="string" SelectedValue="@selectedAssignmentString" SelectedValueChanged="@(value => { selectedAssignmentString = value; context.TriggerFilterChange( selectedAssignmentString ); })">
+                        <SelectItem Value="@("*")">All</SelectItem>
+                        @foreach (var item in listCourses) {
+                            <SelectItem Value="@item.ID">@item.Name</SelectItem>
+                        }
+                    </Select> 
+                </FilterTemplate>
+            </DataGridColumn>
+            <DataGridColumn TItem="Assignment" Field="@nameof(Assignment.Name)" Caption="Assignment Name" Editable  />
+        </DataGridColumns>
+        <DetailRowTemplate>
+            
+            <CriterionComponent SelectedAssignment="selectedAssignment"/>
+        </DetailRowTemplate>
+        <ButtonRowTemplate Context="ctx">
+            <Button Color="Color.Success" Clicked="ctx.NewCommand.Clicked">New</Button>
+            <Button Color="Color.Primary" Disabled="(selectedAssignment is null)" Clicked="ctx.EditCommand.Clicked">Edit</Button>
+            <Button Color="Color.Danger" Disabled="(selectedAssignment is null)" Clicked="ctx.DeleteCommand.Clicked">Delete</Button>
+            <Button Color="Color.Link" Clicked="ctx.ClearFilterCommand.Clicked">Clear Filter</Button>
+        </ButtonRowTemplate>
+    </DataGrid>
+}
+@code {
+    List<Assignment> listAssignment;
+    List<Course> listCourses;
+
+
+    [Inject]
+    IBaseRepository<Assignment> repoAssignment { get; set; }
+    [Inject]
+    IBaseRepository<Course> repoCourse { get; set; }
+
+    [Inject]
+    public IMessageService messageService { get; set; }
+
+    protected Assignment selectedAssignment { get; set; } = null;
+
+    protected override void OnAfterRender(bool firstRender) {
+        base.OnAfterRender(firstRender);
+        if (firstRender) {
+            LoadCourses();
+            LoadData();
+        }
+    }
+
+    protected void RowInserting(CancellableRowChange<Assignment, Dictionary<string, object>> item) {
+
+        item.Item.Name = item.Values[(nameof(Assignment.Name))]?.ToString();
+        if (item.Values[(nameof(Assignment.IdCourse))] != null)
+            item.Item.IdCourse = Convert.ToInt32(item.Values[(nameof(Assignment.IdCourse))]);
+        repoAssignment.AddOrUpdate(item.Item);
+    }
+
+    protected async void RowRemoving(CancellableRowChange<Assignment> item) {
+        var result = await messageService.Confirm("Are you sure?", "Delete Row!");
+        listAssignment.Remove(item.Item);
+        if (result) {
+            repoAssignment.Remove(item.Item);
+            listAssignment.Remove(item.Item);
+        }
+        else {
+            listAssignment.Add(item.Item);
+            item.Cancel = true;
+        }
+        StateHasChanged();
+    }
+
+    protected void LoadData() {
+        listAssignment = repoAssignment.GetAll().Include(q => q.IdCourseNavigation).ToList();
+        StateHasChanged();
+    }
+
+    public void LoadCourses() {
+        listCourses = repoCourse.GetAll().ToList();
+        StateHasChanged();
+    }
+
+    string selectedAssignmentString;
+
+}

@@ -1,0 +1,12 @@
+﻿@layout _LoginLayout
+@inject NavigationManager UriHelper
+@code {
+	//[Inject]
+	//public AuthenticationStateProvider authProvider { get; set; }
+
+	protected override void OnInitialized() {
+		//var rr = await ((CustomAuthenticationStateProvider)authProvider).GetAuthenticationStateAsync();
+		//if (rr.User == null)
+		UriHelper.NavigateTo("/login");
+	}
+ } 

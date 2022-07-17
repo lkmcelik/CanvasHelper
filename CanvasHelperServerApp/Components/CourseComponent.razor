@@ -1,0 +1,85 @@
+﻿@if (listCourses == null) {
+    <p>Loading..</p>
+}
+else {
+
+    <DataGrid TItem="Course"
+              Data="@listCourses"
+              @bind-SelectedRow="@selectedCourse"
+              Editable
+              RowInserting="RowInserting"
+              RowRemoving="RowRemoving"
+              RowUpdating="RowInserting"
+              Responsive
+              PageSize="10"
+              ShowPager
+              CommandMode="DataGridCommandMode.Commands"
+              Hoverable
+              Filterable
+              EditMode="DataGridEditMode.Popup">
+        <DataGridColumns>
+            <DataGridCommandColumn TItem="Course" Width="100" />
+            @*<DataGridColumn TItem="Course" Field="@nameof(Course.ID)" Caption="#" Sortable="false" Editable="false" />*@
+            <DataGridColumn TItem="Course" Field="@nameof(Course.Name)" Caption="Name" Editable />
+        </DataGridColumns>
+        <ButtonRowTemplate Context="ctx">
+            <Button Color="Color.Success" Clicked="ctx.NewCommand.Clicked">New</Button>
+            <Button Color="Color.Primary" Disabled="(selectedCourse is null)" Clicked="ctx.EditCommand.Clicked">Edit</Button>
+            <Button Color="Color.Danger" Disabled="(selectedCourse is null)" Clicked="ctx.DeleteCommand.Clicked">Delete</Button>
+            <Button Color="Color.Link" Clicked="ctx.ClearFilterCommand.Clicked">Clear Filter</Button>
+        </ButtonRowTemplate>
+
+    </DataGrid>
+}
+@code {
+    List<Course> listCourses;
+
+    [Inject]
+    IBaseRepository<Course> repoCourse { get; set; }
+
+    [Inject]
+    public IMessageService messageService { get; set; }
+
+    [Parameter]
+    public Action CourseListChanged { get; set; }
+
+
+    protected Course selectedCourse { get; set; } = new Course();
+
+    protected override void OnAfterRender(bool firstRender) {
+        base.OnAfterRender(firstRender);
+        if (firstRender) {
+            LoadData();
+        }
+    }
+    protected void RowInserting(CancellableRowChange<Course, Dictionary<string, object>> item) {
+
+        item.Item.Name = item.Values[(nameof(Course.Name))].ToString();
+        repoCourse.AddOrUpdate(item.Item);
+        CourseListChanged?.Invoke();
+    }
+    protected async void RowRemoving(CancellableRowChange<Course> item) {
+
+        var result = await messageService.Confirm("Are you sure?", "Delete Row!");
+        listCourses.Remove(item.Item);
+        if (result) {
+            repoCourse.Remove(item.Item);
+            listCourses.Remove(item.Item);
+        }
+        else {
+            listCourses.Add(item.Item);
+            item.Cancel = true;
+        }
+        StateHasChanged();
+        CourseListChanged?.Invoke();
+    }
+
+    protected void LoadData() {
+        var allCourses = repoCourse.GetAll();
+        if (allCourses.Count() > 0)
+        {
+            listCourses = repoCourse.GetAll().ToList();
+        }
+        StateHasChanged();
+    }
+}

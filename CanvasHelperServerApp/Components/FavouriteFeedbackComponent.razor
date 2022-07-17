@@ -1,0 +1,77 @@
+﻿
+@if (listFavoriteFeedback == null) {
+    <p>Loading..</p>
+}
+else {
+
+    <DataGrid TItem="FavoriteFeedback"
+              Data="@listFavoriteFeedback"
+              @bind-SelectedRow="@selectedFeedback"
+              Editable
+              RowInserting="RowInserting"
+              RowRemoving="RowRemoving"
+              RowUpdating="RowInserting"
+              Responsive
+              PageSize="10"
+              ShowPager
+              Filterable
+              CommandMode="DataGridCommandMode.Commands"
+              Hoverable
+              EditMode="DataGridEditMode.Popup">
+        <DataGridColumns>
+            <DataGridCommandColumn TItem="FavoriteFeedback" Width="100" />
+            <DataGridColumn TItem="FavoriteFeedback" Field="@nameof(FavoriteFeedback.Name)" Caption="Feedback Name" Editable="true" />
+            <DataGridColumn TItem="FavoriteFeedback" Field="@nameof(FavoriteFeedback.Mark)" Caption="Marks" Editable="true" />
+            <DataGridColumn TItem="FavoriteFeedback" Field="@nameof(FavoriteFeedback.Text)" Caption="Comments" Editable="true" />
+        </DataGridColumns>
+        <ButtonRowTemplate Context="ctx">
+            <Button Color="Color.Success" Clicked="ctx.NewCommand.Clicked">New</Button>
+            <Button Color="Color.Primary" Disabled="(selectedFeedback is null)" Clicked="ctx.EditCommand.Clicked">Edit</Button>
+            <Button Color="Color.Danger" Disabled="(selectedFeedback is null)" Clicked="ctx.DeleteCommand.Clicked">Delete</Button>
+            <Button Color="Color.Link" Clicked="ctx.ClearFilterCommand.Clicked">Clear Filter</Button>
+        </ButtonRowTemplate>
+    </DataGrid>
+}
+@code {
+    List<FavoriteFeedback> listFavoriteFeedback;
+
+    [Inject]
+    IBaseRepository<FavoriteFeedback> repoFeedback { get; set; }
+
+    [Inject]
+    public IMessageService messageService { get; set; }
+
+    protected FavoriteFeedback selectedFeedback { get; set; } = new FavoriteFeedback();
+
+    protected override void OnAfterRender(bool firstRender) {
+        base.OnAfterRender(firstRender);
+        if (firstRender) {
+            LoadData();
+        }
+    }
+    protected void RowInserting(CancellableRowChange<FavoriteFeedback, Dictionary<string, object>> item) {
+
+        item.Item.Name = item.Values[(nameof(FavoriteFeedback.Name))].ToString();
+        item.Item.Mark = (int?) item.Values[(nameof(FavoriteFeedback.Mark))];
+        item.Item.Text = item.Values[(nameof(FavoriteFeedback.Text))].ToString();
+    }
+
+    protected async void RowRemoving(CancellableRowChange<FavoriteFeedback> item) {
+        var result = await messageService.Confirm("Are you sure?", "Delete Row!");
+        listFavoriteFeedback.Remove(item.Item);
+        if (result) {
+            repoFeedback.Remove(item.Item);
+            listFavoriteFeedback.Remove(item.Item);
+        }
+        else {
+            listFavoriteFeedback.Add(item.Item);
+            item.Cancel = true;
+        }
+        StateHasChanged();
+    }
+
+    protected void LoadData() {
+        listFavoriteFeedback = repoFeedback.GetAll().ToList();
+        StateHasChanged();
+    }
+}

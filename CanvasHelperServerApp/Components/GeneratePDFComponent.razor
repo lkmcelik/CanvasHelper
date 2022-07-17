@@ -1,0 +1,365 @@
+﻿@using System.IO
+@using iText.Layout.Element
+@using CanvasHelperServerApp.Utilities
+
+@inject IJSRuntime JS
+
+<div>
+	@if (model.assignments == null || model.students == null || model.markers == null || listFavoriteFeedbacks == null) {
+		<p>Loading...</p>
+	}
+	else {
+		<EditForm Model="model">
+			<Blazorise.Div>Marker: </Blazorise.Div>
+			<InputSelect @bind-Value="model.MarkerId">
+				@foreach (var marker in model.markers) {
+				<option value="@marker.ID">@marker.FirstName @marker.LastName</option>
+				}
+		</InputSelect>
+		<br />
+		<Blazorise.Div>Assignment: </Blazorise.Div>
+		<InputSelect @bind-Value="model.AssignmentId">
+			@foreach (var assignment in model.assignments) {
+				<option value="@assignment.ID">@assignment.Name</option>
+				}
+		</InputSelect>
+		<br />
+		<Blazorise.Div>Student: </Blazorise.Div>
+		<InputSelect @bind-Value="model.StudentId">
+			@foreach (var student in model.students) {
+				<option value="@student.ID">@student.FirstName @student.LastName</option>
+				}
+		</InputSelect>
+		<br />
+	</EditForm>
+		<Blazorise.Div>Feedback:</Blazorise.Div>
+		@if (model.CurrentAssignment() != null && model.CurrentMarker() != null && model.CurrentStudent() != null) {
+			<DataGrid TItem="UsersCriteriaFeedback"
+			  Data="@FetchOrCreateUserCriteriaFeedbacks()"
+			  @bind-SelectedRow="@selectedUCF"
+			  Editable
+			  RowUpdating="FeedbackRowUpdating"
+			  Responsive
+			  PageSize="10"
+			  ShowPager="false"
+			  CommandMode="DataGridCommandMode.Commands"
+			  Hoverable
+			  EditMode="DataGridEditMode.Form">
+				<DataGridColumns>
+					<DataGridCheckColumn TItem="UsersCriteriaFeedback" Field="IsChecked" Caption="Apply Favourite">
+						<DisplayTemplate>
+							<Check TValue="bool" @bind-Checked="context.IsChecked" />
+						</DisplayTemplate>
+					</DataGridCheckColumn>
+					<DataGridCommandColumn TItem="UsersCriteriaFeedback" Width="100" />
+					<DataGridColumn TItem="UsersCriteriaFeedback" Field="IdCriteriaNavigation.Name" Caption="Criterion Name" Editable="false" />
+					<DataGridColumn TItem="UsersCriteriaFeedback" Field="IdFeedbackNavigation.Mark" Caption="Marks" Editable="true" />
+					<DataGridColumn TItem="UsersCriteriaFeedback" Field="IdCriteriaNavigation.MaxMark" Caption="Max Marks" Editable="false" />
+					<DataGridColumn TItem="UsersCriteriaFeedback" Field="IdFeedbackNavigation.Text" Caption="Comments" Editable="true" />
+					<DataGridColumn TItem="UsersCriteriaFeedback" Field="IdFeedback" Sortable="false" Filterable="false" Width="120px" Caption="Favourite Feedback">
+						<DisplayTemplate>
+							<Select TValue="int?" SelectedValue="@_selectedFavoriteIndex" SelectedValueChanged="@(s => SelectFavorite(s, context.ID))">
+								@foreach (var item in listFavoriteFeedbacks) {
+									@if (item != null) {
+										<SelectItem Value="@item.ID">@item.Name</SelectItem>
+
+									}
+									else {
+										<SelectItem Value="-1">Select...</SelectItem>
+									}
+								}
+							</Select>
+						</DisplayTemplate>
+					</DataGridColumn>
+				</DataGridColumns>
+				<ButtonRowTemplate Context="ctx">
+					<Button Color="Color.Primary" Clicked="ctx.EditCommand.Clicked">Edit</Button>
+				</ButtonRowTemplate>
+			</DataGrid>
+
+		}
+	}
+</div>
+@if (listFavoriteFeedbacks != null) {
+	<Div>
+		<Button @onclick="CheckAllFavoriteFeedback" class="btn btn-success">
+			Check all
+		</Button>
+		<Button @onclick="UncheckAllFavoriteFeedback" class="btn btn-success">
+			Uncheck all
+		</Button>
+	</Div>
+	<p>Apply favourite feedback to checked: </p>
+	<Div>
+		<Select TValue="int?" SelectedValue="@_selectedFavoriteIndex" SelectedValueChanged="@(s => SelectFavoriteAll(s))">
+			@foreach (var item in listFavoriteFeedbacks) {
+				@if (item != null) {
+					<SelectItem Value="@item.ID">@item.Name</SelectItem>
+
+				}
+				else {
+					<SelectItem Value="-1">Select...</SelectItem>
+				}
+			}
+		</Select>
+		<Button @onclick="ApplyFavoriteFeedbackToChecked" class="btn btn-success">
+			Apply Feedback
+		</Button>
+	</Div>
+}
+<button type="button" class="btn btn-success" @onclick="GeneratePDF">
+	<i class="fa fa-pencil-square-o" aria-hidden="true"></i>Generate PDF
+</button>
+
+@code {
+
+	[Inject]
+	IBaseRepository<Assignment> repoAssignment { get; set; }
+
+	[Inject]
+	IBaseRepository<Course> repoCourse { get; set; }
+
+	[Inject]
+	IBaseRepository<User> repoUser { get; set; }
+
+	[Inject]
+	IBaseRepository<Feedback> repoFeedback { get; set; }
+
+	[Inject]
+	IBaseRepository<FavoriteFeedback> repoFavoriteFeedbacks { get; set; }
+
+	[Inject]
+	IBaseRepository<UsersCriteriaFeedback> repoUsersCriteriaFeedback { get; set; }
+
+	bool useFavorite = false;
+
+	bool NotUseFavorite() {
+		return !useFavorite;
+	}
+
+	void SelectFavorite(int? feedbackID, int ucfID) {
+		FavoriteFeedback fav = repoFavoriteFeedbacks.GetById((int)feedbackID);
+		List<UsersCriteriaFeedback> matchingUcfs = repoUsersCriteriaFeedback.GetAll().Where(u => u.ID == ucfID).Include(u => u.IdFeedbackNavigation).ToList();// .GetById(ucfID);
+		UsersCriteriaFeedback ucf = matchingUcfs[0];
+		Feedback feedback = ucf.IdFeedbackNavigation;
+		if (fav != null) {
+			int marks = (int)fav.Mark;
+			string feedbackText = fav.Text;
+			if (feedback != null && (!feedbackText.Equals(feedback.Text) || !feedback.Mark.Equals(marks))) {
+				feedback.Mark = marks;
+				feedback.Text = feedbackText;
+			}
+		}
+
+		if (feedback != null) {
+			repoFeedback.AddOrUpdate(feedback);
+			repoUsersCriteriaFeedback.AddOrUpdate(ucf);
+		}
+		LoadData();
+		StateHasChanged();
+	}
+	FavoriteFeedback selectedFavoriteForChecked = new();
+	void SelectFavoriteAll(int? feedbackID) {
+		FavoriteFeedback fav = repoFavoriteFeedbacks.GetById((int)feedbackID);
+		this.selectedFavoriteForChecked = fav;
+	}
+
+	List<FavoriteFeedback> listFavoriteFeedbacks;
+
+	List<UsersCriteriaFeedback> listUCF;
+
+	protected UsersCriteriaFeedback selectedUCF { get; set; } = new();
+
+	int _selectedFavoriteIndex;
+
+	FeedbackModel model = new();
+
+	class FeedbackModel
+	{
+
+		public List<Assignment> assignments;
+		public string AssignmentId { get; set; }
+
+		public List<User> students;
+		public string StudentId { get; set; }
+
+		public List<User> markers;
+		public string MarkerId { get; set; }
+
+		public List<UsersCriteriaFeedback> usersCriteriaFeedbacks;
+
+		public Assignment CurrentAssignment() {
+			foreach (Assignment a in assignments) {
+				if (a.ID.Equals(Int32.Parse(this.AssignmentId))) {
+					return a;
+				}
+			}
+			return null;
+		}
+
+		public User CurrentMarker() {
+			foreach (User u in markers) {
+				if (u.ID.Equals(Int32.Parse(this.MarkerId))) {
+					return u;
+				}
+			}
+			return null;
+		}
+
+		public User CurrentStudent() {
+			foreach (User u in students) {
+				if (u.ID.Equals(Int32.Parse(this.StudentId))) {
+					return u;
+				}
+			}
+			return null;
+		}
+	}
+
+	// mass feedback actions
+
+	private void ApplyFavoriteFeedbackToChecked() {
+		if (this.selectedFavoriteForChecked != null) {
+			foreach (UsersCriteriaFeedback ucf in this.listUCF) {
+				if (ucf.IsChecked) {
+					SelectFavorite(this.selectedFavoriteForChecked.ID, ucf.ID);
+				}
+			}
+		}
+	}
+
+	private void CheckAllFavoriteFeedback() {
+		foreach (UsersCriteriaFeedback ucf in this.listUCF) {
+			ucf.IsChecked = true;
+		}
+	}
+
+	private void UncheckAllFavoriteFeedback() {
+		foreach (UsersCriteriaFeedback ucf in this.listUCF) {
+			ucf.IsChecked = false;
+		}
+	}
+
+	// pdf generate control
+
+	private async void GeneratePDF() {
+
+		User marker = model.CurrentMarker(), student = model.CurrentStudent();
+		Assignment assignment = model.CurrentAssignment();
+		var filename = assignment.Name + "_" + student.FirstName + "_" + student.LastName + ".pdf";
+		filename = filename.Replace(' ', '_');
+		await JS.InvokeVoidAsync("jsSaveAsFile",
+						filename,
+						Convert.ToBase64String(GeneratePDFData(marker, student, assignment))
+						);
+	}
+
+	protected override void OnAfterRender(bool firstRender) {
+		base.OnAfterRender(firstRender);
+		if (firstRender) {
+			LoadData();
+		}
+	}
+
+	private void LoadData() {
+		LoadMarkers();
+		LoadAssignments();
+		LoadStudents();
+		LoadFavoriteFeedbacks();
+		LoadUserCriteriaFeedbacks();
+	}
+
+	protected void FeedbackRowUpdating(CancellableRowChange<UsersCriteriaFeedback, Dictionary<string, object>> item) {
+
+		UsersCriteriaFeedback ucf = item.Item;
+		Criterion criterion = ucf.IdCriteriaNavigation;
+		string markString = "";
+		string feedbackText = "";
+		int marks = 0;
+		markString = item.Values["IdFeedbackNavigation.Mark"].ToString();
+		feedbackText = item.Values["IdFeedbackNavigation.Text"].ToString();
+		marks = Int32.Parse(markString);
+		int maxMarks = (int)criterion.MaxMark;
+		Feedback feedback = ucf.IdFeedbackNavigation;
+
+		feedback.Mark = marks;
+		feedback.Text = feedbackText;
+		if (feedback != null) {
+			repoFeedback.AddOrUpdate(feedback);
+		}
+	}
+
+	public List<UsersCriteriaFeedback> FetchOrCreateUserCriteriaFeedbacks() {
+		List<UsersCriteriaFeedback> allUcfs = new();
+		User student = model.CurrentStudent();
+		User marker = model.CurrentMarker();
+		Assignment assignment = model.CurrentAssignment();
+
+		if (assignment == null)
+			return new();
+
+		foreach (Criterion c in assignment.Criteria) {
+			List<UsersCriteriaFeedback> ucfs = c.UsersCriteriaFeedbacks
+			.Where(ucf => ucf.IdUser.Equals(student.ID))
+			.Where(ucf => ucf.IdFeedbackNavigation.IdUser.Equals(marker.ID)).ToList();
+			if (ucfs.Count > 0) {
+				allUcfs.Add(ucfs[0]);
+			}
+			else {
+				UsersCriteriaFeedback createdUcf = new(); //temp-- this is probably the wrong way to insert
+				Feedback createdFeedback = new();
+				createdFeedback.IdUser = marker.ID;
+				repoFeedback.AddOrUpdate(createdFeedback);
+				createdUcf.IdUser = student.ID;
+				createdUcf.IdCriteria = c.ID;
+				createdUcf.IdFeedback = createdFeedback.ID;
+				repoUsersCriteriaFeedback.AddOrUpdate(createdUcf);
+				allUcfs.Add(createdUcf);
+			}
+		}
+		return allUcfs;
+	}
+
+	// output the PDF for user to download
+
+	private byte[] GeneratePDFData(User marker, User student, Assignment assignment) {
+
+		return PDFUtilities.GeneratePDFData(marker, student, assignment);
+	}
+
+	//TODO: reload list of students whenever we change assignment (maybe in StateHasChanged()?)
+
+	public void LoadStudents() {
+		//TODO: not all users, just students for the current assignment
+		model.students = repoUser.GetAll().ToList();
+		model.StudentId = model.students.Count > 0 ? model.students[0].ID.ToString() : "0";
+		StateHasChanged();
+	}
+
+	public void LoadMarkers() {
+		//TODO: not all users, just markers
+		model.markers = repoUser.GetAll().ToList();
+		model.MarkerId = model.markers.Count > 0 ? model.markers[0].ID.ToString() : "0";
+		StateHasChanged();
+	}
+
+	public void LoadAssignments() {
+		model.assignments = repoAssignment.GetAll().Include(q => q.IdCourseNavigation)
+		.Include(q => q.Criteria)
+		.ThenInclude(c => c.UsersCriteriaFeedbacks)
+		.ThenInclude(ucf => ucf.IdFeedbackNavigation)
+		.ToList();
+		model.AssignmentId = model.assignments.Count > 0 ? model.assignments[0].ID.ToString() : "0";
+		StateHasChanged();
+	}
+
+	public void LoadFavoriteFeedbacks() {
+		listFavoriteFeedbacks = repoFavoriteFeedbacks.GetAll().ToList();
+		listFavoriteFeedbacks.Insert(0, null);
+		StateHasChanged();
+	}
+
+	public void LoadUserCriteriaFeedbacks() {
+		listUCF = this.FetchOrCreateUserCriteriaFeedbacks();
+	}
+}
